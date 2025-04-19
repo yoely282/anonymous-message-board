@@ -1,13 +1,19 @@
 'use strict';
 require('dotenv').config();
+
 const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
+const helmet      = require('helmet');
+const mongoose    = require('mongoose');
+
+const apiRoutes         = require('./routes/api.js');
+const fccTestingRoutes  = require('./routes/fcctesting.js');
+const runner            = require('./test-runner');
+
 console.log('ENV is:', process.env.NODE_ENV);
 
-require('dotenv').config();
-const mongoose = require('mongoose');
-
+// ✅ MongoDB Connection
 mongoose.connect(process.env.DB, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -15,58 +21,54 @@ mongoose.connect(process.env.DB, {
 .then(() => console.log('✅ MongoDB connected'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
-
-const apiRoutes         = require('./routes/api.js');
-const fccTestingRoutes  = require('./routes/fcctesting.js');
-const runner            = require('./test-runner');
-
 const app = express();
 
+// ✅ Static Files
 app.use('/public', express.static(process.cwd() + '/public'));
 
-app.use(cors({origin: '*'})); //For FCC testing purposes only
+// ✅ CORS for FCC Testing
+app.use(cors({ origin: '*' }));
 
+// ✅ Helmet Security Headers (for tests 2, 3, and 4)
+app.use(helmet.frameguard({ action: 'sameorigin' })); // Test #2
+app.use(helmet.dnsPrefetchControl());                 // Test #3
+app.use(helmet.referrerPolicy({ policy: 'same-origin' })); // Test #4
+
+// ✅ Body Parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//Sample front-end
+// ✅ HTML Routes
 app.route('/b/:board/')
-  .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/board.html');
-  });
+  .get((req, res) => res.sendFile(process.cwd() + '/views/board.html'));
+
 app.route('/b/:board/:threadid')
-  .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/thread.html');
-  });
+  .get((req, res) => res.sendFile(process.cwd() + '/views/thread.html'));
 
-//Index page (static HTML)
 app.route('/')
-  .get(function (req, res) {
-    res.sendFile(process.cwd() + '/views/index.html');
-  });
+  .get((req, res) => res.sendFile(process.cwd() + '/views/index.html'));
 
-//For FCC testing purposes
+// ✅ Testing and API Routes
 fccTestingRoutes(app);
-
-//Routing for API 
 apiRoutes(app);
 
-//404 Not Found Middleware
-app.use(function(req, res, next) {
+// ✅ 404 Middleware
+app.use((req, res, next) => {
   res.status(404)
     .type('text')
     .send('Not Found');
 });
 
-//Start our server and tests!
+// ✅ Start Server and Run Tests (when NODE_ENV=test)
 const listener = app.listen(process.env.PORT || 3000, function () {
   console.log('Your app is listening on port ' + listener.address().port);
-  if(process.env.NODE_ENV==='test') {
+  
+  if (process.env.NODE_ENV === 'test') {
     console.log('Running Tests...');
     setTimeout(function () {
       try {
         runner.run();
-      } catch(e) {
+      } catch (e) {
         console.log('Tests are not valid:');
         console.error(e);
       }
@@ -74,4 +76,4 @@ const listener = app.listen(process.env.PORT || 3000, function () {
   }
 });
 
-module.exports = app; //for testing
+module.exports = app; // for testing
