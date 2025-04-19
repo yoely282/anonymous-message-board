@@ -1,11 +1,10 @@
 'use strict';
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
 
 const fccTestingRoutes = require('./routes/fcctesting.js');
 const apiRoutes = require('./routes/api.js');
@@ -13,18 +12,14 @@ const runner = require('./test-runner');
 
 const app = express();
 
-// ✅ Connect to MongoDB
 mongoose.connect(process.env.DB, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .catch(err => console.error('❌ DB connection error', err));
 
-// ✅ Middleware
-app.use('/public', express.static(process.cwd() + '/public'));
+// Security middleware
 app.use(cors({ origin: '*' }));
-
-// ✅ Required Helmet Security Headers
 app.use(helmet.frameguard({ action: 'sameorigin' }));
 app.use(helmet.dnsPrefetchControl());
 app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
@@ -32,21 +27,21 @@ app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ HTML Pages
+app.use('/public', express.static(process.cwd() + '/public'));
+
+// View Routes
 app.route('/b/:board/').get((req, res) => res.sendFile(process.cwd() + '/views/board.html'));
 app.route('/b/:board/:threadid').get((req, res) => res.sendFile(process.cwd() + '/views/thread.html'));
 app.route('/').get((req, res) => res.sendFile(process.cwd() + '/views/index.html'));
 
-// ✅ FCC Test Routes
+// API + FCC testing
 fccTestingRoutes(app);
-
-// ✅ API Routes
 apiRoutes(app);
 
-// ✅ 404 Not Found
+// 404 handler
 app.use((req, res) => res.status(404).type('text').send('Not Found'));
 
-// ✅ Start Server & Tests
+// Start server
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
   if (process.env.NODE_ENV === 'test') {
